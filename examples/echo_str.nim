@@ -1,3 +1,3 @@
 import std/syncio
-let s = "greetings from aiflib"
+let s = "greetings from aowllib"
 echo s

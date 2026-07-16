@@ -1,17 +1,17 @@
 (.nif27)
-(.indexat 1779             )
+(.indexat 1782             )
 (stmts@,1,examples/echo_str.nim
- (const@8,1 :strlit.0.I5761281195375586011. . LongString.0.sysvq0asl
+ (const@8,1 :strlit.0.I17094046893338763695. . LongString.0.sysvq0asl
   (oconstr LongString.0.sysvq0asl
-   (kv fullLen.0 21)
+   (kv fullLen.0 22)
    (kv rc.0 0)
    (kv capImpl.0 0)
-   (kv data.0 "greetings from aiflib")))
+   (kv data.0 "greetings from aowllib")))
  (gvar@4,1 :s.0. . string.0.sysvq0asl
   (oconstr@4 string.0.sysvq0asl
    (kv bytes.0 7956018195569207294u)
    (kv more.0
-    (addr strlit.0.I5761281195375586011.))))
+    (addr strlit.0.I17094046893338763695.))))
  (gvar :`iniGuard.0. .
   (bool).)
  (proc :`ini.0.
@@ -82,9 +82,9 @@
    (call `ini.0.)
    (call nimFlushStdStreams.0.sysvq0asl)
    (ret 0))))(.index@,1,examples/echo_str.nim
- (h strlit.0.I5761281195375586011. 69)
- (h s.0. 200)
- (h `iniGuard.0. 166)
+ (h strlit.0.I17094046893338763695. 69)
+ (h s.0. 202)
+ (h `iniGuard.0. 167)
  (x `ini.0. 34)
  (x `cchar.0. 426)
  (x `cmdCount.0. 71)

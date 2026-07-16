@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# run.sh — build every example .c.nif natively through aiflib-cc and assert its
+# run.sh — build every example .c.nif natively through aowllib-cc and assert its
 # runtime output matches test/expected/<name>.txt.
 #
 #   test/run.sh              # build from committed .c.nif (needs only node + gcc)
 #   test/run.sh --regen      # first regenerate every .c.nif from its .nim (needs nimony)
 #
-# This is the aiflib acceptance suite: it proves real nimony programs — echo,
+# This is the aowllib acceptance suite: it proves real nimony programs — echo,
 # strings, seqs, ref objects with ARC — link and run natively against the
-# aiflib runtime with no nimony system.c.nif.
+# aowllib runtime with no nimony system.c.nif.
 set -uo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
@@ -50,7 +50,7 @@ fi
 pass=0; fail=0; failed=()
 for f in "${EXAMPLES[@]}"; do
   out="$work/$f"
-  if ! node bin/aiflib-cc.js "$ex/$f.c.nif" -o "$out" >"$work/$f.err" 2>&1; then
+  if ! node bin/aowllib-cc.js "$ex/$f.c.nif" -o "$out" >"$work/$f.err" 2>&1; then
     echo "  FAIL  $f (build)"; sed 's/^/        /' "$work/$f.err" | head -4
     fail=$((fail+1)); failed+=("$f"); continue
   fi

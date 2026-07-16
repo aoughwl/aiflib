@@ -1,4 +1,4 @@
-# aiflib
+# aowllib
 
 The **aowl system module + runtime**: the hand-written C runtime that provides
 the `system` / `syncio` symbols a post-`hexer` `.c.nif` references, so **real
@@ -10,7 +10,7 @@ natively** through [aifc](https://github.com/aoughwl/aifc), with **no** nimony
 > build, `$`, indexing, `==`/`<`/`<=`, `case`-on-string, `for c in s`, slicing, mutation), seqs
 > (growth, nesting, assignment, return-by-value, bounds checks), case objects, `object`/`ref`
 > with heap-typed fields, non-zero-based arrays with bounds panics, `INT64_MIN`
-> and SSO tier boundaries — compile to native binaries through `aifc` + `aiflib`
+> and SSO tier boundaries — compile to native binaries through `aifc` + `aowllib`
 > and pass a 40/40 acceptance suite, **ASan/UBSan/LSan-clean, leak-free**. This
 > is the biggest unlock in the
 > [aifmony](https://github.com/aoughwl/aifmony) rewrite: it's what lets a program
@@ -24,7 +24,7 @@ npm run test:regen  # also regenerate each .c.nif from its .nim first (needs nim
 
 ```
   ok    hello      hello, nimony
-  ok    echo_str   greetings from aiflib
+  ok    echo_str   greetings from aowllib
   ok    echo_int   42
   ok    concat     foobar
   ok    strbuild   ababab
@@ -44,27 +44,27 @@ By the time `hexer` has lowered a program, ARC calls and runtime operations are
 *injected* into the `.c.nif` — they reference runtime symbols (`write`, the
 string/seq structs, `=destroy`, `allocFixed`, `arcInc`, …) that must exist at
 link time. Nimony gets them by compiling its `system` module to `.c.nif`.
-**aiflib provides them as an aowl-owned C layer instead.**
+**aowllib provides them as an aowl-owned C layer instead.**
 
 The trick: those symbols are **content-addressed** — `write.0.syn1lfpjv` carries
-the hash of the `syncio` module. aiflib is written once with clean,
-hash-independent names (`aiflib_write_string`, …); the linker `bin/aiflib-cc`
+the hash of the `syncio` module. aowllib is written once with clean,
+hash-independent names (`aowllib_write_string`, …); the linker `bin/aowllib-cc`
 reads the *actual* symbols a given `.c.nif` uses and generates a per-program
-shim that aliases them onto aiflib. Any runtime symbol aiflib doesn't cover is
+shim that aliases them onto aowllib. Any runtime symbol aowllib doesn't cover is
 reported as an explicit coverage gap, never silently stubbed.
 
 ```
-  .c.nif ──aifc.compileModule──▶ C ──inject shim──▶ gcc + runtime/aiflib.c ──▶ native binary
-             (the printer)         (hashed→aiflib)        (the runtime)
+  .c.nif ──aifc.compileModule──▶ C ──inject shim──▶ gcc + runtime/aowllib.c ──▶ native binary
+             (the printer)         (hashed→aowllib)        (the runtime)
 ```
 
 ## Layout
 
 | path | what |
 |---|---|
-| `runtime/aiflib.h` / `aiflib.c` | the C runtime: string SSO, seq, ARC, allocator, IO, `$`, panics |
-| `runtime/runtime-map.js` | nimony symbol base → aiflib entry point + the shim C |
-| `bin/aiflib-cc.js` | link a `.c.nif` into a native binary (print → shim → gcc) |
+| `runtime/aowllib.h` / `aowllib.c` | the C runtime: string SSO, seq, ARC, allocator, IO, `$`, panics |
+| `runtime/runtime-map.js` | nimony symbol base → aowllib entry point + the shim C |
+| `bin/aowllib-cc.js` | link a `.c.nif` into a native binary (print → shim → gcc) |
 | `examples/*.nim` / `*.c.nif` | source + committed post-hexer IR for the suite |
 | `test/run.sh`, `test/expected/` | the acceptance suite |
 | `docs/runtime.md` | the runtime contract in detail (layouts, SSO, ABI, coverage) |
@@ -73,15 +73,15 @@ reported as an explicit coverage gap, never silently stubbed.
 
 ```sh
 # compile a post-hexer .c.nif to a native binary and run it:
-node bin/aiflib-cc.js path/to/module.c.nif -o ./prog --run
+node bin/aowllib-cc.js path/to/module.c.nif -o ./prog --run
 
 # from Nim source (needs the nimony toolchain):
 test/gen-cnif.sh foo.nim foo.c.nif
-node bin/aiflib-cc.js foo.c.nif -o foo && ./foo
+node bin/aowllib-cc.js foo.c.nif -o foo && ./foo
 ```
 
-`aiflib-cc` resolves `aifc` from `$AIFLIB_AIFC`, then `~/aifc/nifc.js`. The
-`.nim → .c.nif` step resolves nimony from `$AIFLIB_NIMONY`, then `~/nimony/bin`.
+`aowllib-cc` resolves `aifc` from `$AOWLLIB_AIFC`, then `~/aifc/nifc.js`. The
+`.nim → .c.nif` step resolves nimony from `$AOWLLIB_NIMONY`, then `~/nimony/bin`.
 
 ## Design notes
 

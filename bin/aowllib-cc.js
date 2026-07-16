@@ -1,30 +1,30 @@
 #!/usr/bin/env node
-/* aiflib-cc — link a post-hexer `.c.nif` into a native binary against aiflib.
+/* aowllib-cc — link a post-hexer `.c.nif` into a native binary against aowllib.
  *
- *   aiflib-cc <module.c.nif> [-o out] [--emit-c file.c] [--cc gcc] [--run]
+ *   aowllib-cc <module.c.nif> [-o out] [--emit-c file.c] [--cc gcc] [--run]
  *
  * Pipeline:
  *   1. print the module to C with aifc (compileModule, no extern stubs)
  *   2. scan the `.c.nif` for undefined runtime externs (symbols carrying a
  *      module hash and not defined in this module)
- *   3. map each onto an aiflib canonical symbol via RUNTIME (docs/runtime.md);
+ *   3. map each onto an aowllib canonical symbol via RUNTIME (docs/runtime.md);
  *      any unmapped runtime symbol is a hard error listing the gap
  *   4. inject a shim (types + aliases) right after aifc's PRELUDE
- *   5. compile + link with the aiflib runtime -> native binary
+ *   5. compile + link with the aowllib runtime -> native binary
  *
- * aiflib is the self-owned `system`/`syncio` layer, so only the *main* module's
+ * aowllib is the self-owned `system`/`syncio` layer, so only the *main* module's
  * `.c.nif` is compiled; system/syncio come from the C runtime, not their own
- * `.c.nif`.  See https://github.com/aoughwl/aiflib.
+ * `.c.nif`.  See https://github.com/aoughwl/aowllib.
  */
 "use strict";
 const fs = require("fs");
 const path = require("path");
 const cp = require("child_process");
 
-const AIFC = process.env.AIFLIB_AIFC ||
+const AIFC = process.env.AOWLLIB_AIFC ||
   [path.join(process.env.HOME || "", "aifc", "nifc.js"),
    path.join(__dirname, "..", "..", "aifc", "nifc.js")].find(p => fs.existsSync(p));
-if (!AIFC) { console.error("aiflib-cc: cannot find aifc (nifc.js); set AIFLIB_AIFC"); process.exit(2); }
+if (!AIFC) { console.error("aowllib-cc: cannot find aifc (nifc.js); set AOWLLIB_AIFC"); process.exit(2); }
 const api = require(AIFC);
 const RUNTIME_DIR = path.join(__dirname, "..", "runtime");
 const { RUNTIME, shimTypedefs } = require(path.join(RUNTIME_DIR, "runtime-map.js"));
@@ -158,7 +158,7 @@ function parseArgs(argv) {
 function main() {
   const o = parseArgs(process.argv.slice(2));
   if (!o.input) {
-    console.error("usage: aiflib-cc <module.c.nif> [-o out] [--emit-c f.c] [--run]");
+    console.error("usage: aowllib-cc <module.c.nif> [-o out] [--emit-c f.c] [--run]");
     process.exit(2);
   }
   const snif = fs.readFileSync(o.input, "utf8");
@@ -197,20 +197,20 @@ function main() {
     if (!target) { unmapped.push(`${sym}  (unresolved overload for base '${c.base}')`); continue; }
     if (entry.typedefs) entry.typedefs.forEach(t => typedefsNeeded.add(t));
     if (entry.kind === "type") {
-      // the type itself is aliased by name to an aiflib canonical struct
+      // the type itself is aliased by name to an aowllib canonical struct
       typedefsNeeded.add(target);
-      shimLines.push(`typedef Aiflib_${target} ${cName};`);
+      shimLines.push(`typedef Aowllib_${target} ${cName};`);
     } else {
       shimLines.push(`#define ${cName} ${target}`);
     }
   }
   if (unmapped.length) {
-    console.error("aiflib-cc: unmapped runtime symbols (aiflib coverage gap):\n  " +
-      unmapped.join("\n  ") + "\nAdd them to runtime/runtime-map.js + runtime/aiflib.{h,c}.");
+    console.error("aowllib-cc: unmapped runtime symbols (aowllib coverage gap):\n  " +
+      unmapped.join("\n  ") + "\nAdd them to runtime/runtime-map.js + runtime/aowllib.{h,c}.");
     process.exit(3);
   }
 
-  const shim = "/* ---- aiflib shim (generated) ---- */\n" +
+  const shim = "/* ---- aowllib shim (generated) ---- */\n" +
     shimTypedefs([...typedefsNeeded]) + "\n" +
     "/* runtime prototypes */\n" + require(path.join(RUNTIME_DIR, "runtime-map.js")).PROTOS + "\n" +
     shimLines.join("\n") + "\n";
@@ -224,23 +224,23 @@ function main() {
     const m = finalC.match(
       /typedef struct (openArray_\w+) \{\s*NC8\s*\*\s*(\w+)\s*;\s*NI64\s+(\w+)\s*;\s*\}/);
     if (!m) {
-      console.error("aiflib-cc: string toOpenArray referenced but no openArray[char] " +
+      console.error("aowllib-cc: string toOpenArray referenced but no openArray[char] " +
         "type ({NC8* a; NI64 len}) found in the module — cannot bind it.");
       process.exit(3);
     }
     const [, oaType, dataFld, lenFld] = m;
     const helpers = openArrayStrSyms.map((nm) =>
-      `static inline ${oaType} ${nm}(Aiflib_string* aiflib_sp) {\n` +
-      `  ${oaType} aiflib_oa;\n` +
-      `  aiflib_oa.${dataFld} = (NC8*)aiflib_str_data(aiflib_sp);\n` +
-      `  aiflib_oa.${lenFld} = aiflib_str_len(*aiflib_sp);\n` +
-      `  return aiflib_oa;\n}`).join("\n");
-    const block = "/* ---- aiflib string toOpenArray (generated, after types) ---- */\n" +
+      `static inline ${oaType} ${nm}(Aowllib_string* aowllib_sp) {\n` +
+      `  ${oaType} aowllib_oa;\n` +
+      `  aowllib_oa.${dataFld} = (NC8*)aowllib_str_data(aowllib_sp);\n` +
+      `  aowllib_oa.${lenFld} = aowllib_str_len(*aowllib_sp);\n` +
+      `  return aowllib_oa;\n}`).join("\n");
+    const block = "/* ---- aowllib string toOpenArray (generated, after types) ---- */\n" +
       helpers + "\n\n";
     const anchor = ["/* --- prototypes --- */", "/* --- procedures --- */"]
       .find((a) => finalC.includes(a));
     if (!anchor) {
-      console.error("aiflib-cc: could not find an injection anchor after the type section.");
+      console.error("aowllib-cc: could not find an injection anchor after the type section.");
       process.exit(3);
     }
     finalC = finalC.replace(anchor, block + anchor);
@@ -248,33 +248,33 @@ function main() {
 
   // String `[]`(HSlice) substr: like toOpenArray, its HSlice parameter type is
   // module-local, so emit a real wrapper after the types that decomposes the
-  // HSlice ({a,b}) and calls the fixed aiflib substr entry point.
+  // HSlice ({a,b}) and calls the fixed aowllib substr entry point.
   if (sliceStrSyms.length) {
     const st = finalC.match(/typedef struct (string_\w+)\b/) ||
-               [null, "Aiflib_string"];
+               [null, "Aowllib_string"];
     const hs = finalC.match(
       /typedef struct (HSlice_\w+) \{\s*NI64\s+(\w+)\s*;\s*NI64\s+(\w+)\s*;\s*\}/);
     if (!hs) {
-      console.error("aiflib-cc: string slice referenced but no HSlice[int,int] type " +
+      console.error("aowllib-cc: string slice referenced but no HSlice[int,int] type " +
         "({NI64 a; NI64 b}) found in the module — cannot bind it.");
       process.exit(3);
     }
     const strType = st[1], [, hsType, aFld, bFld] = hs;
     const helpers = sliceStrSyms.map((nm) =>
-      `static inline ${strType} ${nm}(${strType} aiflib_s, ${hsType} aiflib_x) {\n` +
-      `  return aiflib_str_slice_ab(aiflib_s, aiflib_x.${aFld}, aiflib_x.${bFld});\n}`).join("\n");
-    const block = "/* ---- aiflib string slice / substr (generated, after types) ---- */\n" +
+      `static inline ${strType} ${nm}(${strType} aowllib_s, ${hsType} aowllib_x) {\n` +
+      `  return aowllib_str_slice_ab(aowllib_s, aowllib_x.${aFld}, aowllib_x.${bFld});\n}`).join("\n");
+    const block = "/* ---- aowllib string slice / substr (generated, after types) ---- */\n" +
       helpers + "\n\n";
     const anchor = ["/* --- prototypes --- */", "/* --- procedures --- */"]
       .find((a) => finalC.includes(a));
     if (!anchor) {
-      console.error("aiflib-cc: could not find an injection anchor after the type section.");
+      console.error("aowllib-cc: could not find an injection anchor after the type section.");
       process.exit(3);
     }
     finalC = finalC.replace(anchor, block + anchor);
   }
 
-  const cFile = o.emitC || path.join(require("os").tmpdir(), "aiflib_" + path.basename(o.input) + ".c");
+  const cFile = o.emitC || path.join(require("os").tmpdir(), "aowllib_" + path.basename(o.input) + ".c");
   fs.writeFileSync(cFile, finalC);
   if (o.emitC && !o.out) { console.log("wrote " + cFile); return; }
 
@@ -285,9 +285,9 @@ function main() {
   // Promote exactly that class back to a hard error.
   const cmd = [o.cc, "-std=gnu11", "-O2", "-w",
     "-Werror=implicit-function-declaration", "-Werror=implicit-int", cFile,
-    path.join(RUNTIME_DIR, "aiflib.c"), "-I", RUNTIME_DIR, "-o", out, ...o.cflags];
+    path.join(RUNTIME_DIR, "aowllib.c"), "-I", RUNTIME_DIR, "-o", out, ...o.cflags];
   const r = cp.spawnSync(cmd[0], cmd.slice(1), { stdio: "inherit" });
-  if (r.status !== 0) { console.error("aiflib-cc: cc failed"); process.exit(r.status || 1); }
+  if (r.status !== 0) { console.error("aowllib-cc: cc failed"); process.exit(r.status || 1); }
   if (o.run) {
     const rr = cp.spawnSync(path.resolve(out), [], { stdio: "inherit" });
     process.exit(rr.status || 0);
