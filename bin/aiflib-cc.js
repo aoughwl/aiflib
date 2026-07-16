@@ -170,12 +170,19 @@ function main() {
   const shimLines = [];
   const typedefsNeeded = new Set();
   const unmapped = [];
+  const openArrayStrSyms = [];   // mangled names of string toOpenArray externs
   for (const [sym, info] of externs) {
     const c = canon(sym);
     if (!c) continue;
     const cName = api.mangleToC(sym);
     const entry = RUNTIME[c.base] || RUNTIME[c.baseReadable];
     if (!entry) { unmapped.push(`${sym}  (base '${c.base}')`); continue; }
+    if (entry.kind === "openarray-str") {
+      // string `toOpenArray`: defined as a real function after the types (below),
+      // because its return type is the module-local openArray struct.
+      openArrayStrSyms.push(cName);
+      continue;
+    }
     let target;
     if (typeof entry.resolve === "function") target = entry.resolve(info.args.map(a => classifyArg(a, symtab)), c);
     else target = entry.target;
@@ -200,13 +207,48 @@ function main() {
     "/* runtime prototypes */\n" + require(path.join(RUNTIME_DIR, "runtime-map.js")).PROTOS + "\n" +
     shimLines.join("\n") + "\n";
 
-  const finalC = userC.replace(api.PRELUDE, api.PRELUDE + "\n" + shim);
+  let finalC = userC.replace(api.PRELUDE, api.PRELUDE + "\n" + shim);
+
+  // String `toOpenArray`: emit a real function after the type section (where the
+  // module-local openArray[char] struct is complete).  It returns {data,len} of
+  // the string — matching nimony's openArray layout {NC8* a; NI len}.
+  if (openArrayStrSyms.length) {
+    const m = finalC.match(
+      /typedef struct (openArray_\w+) \{\s*NC8\s*\*\s*(\w+)\s*;\s*NI64\s+(\w+)\s*;\s*\}/);
+    if (!m) {
+      console.error("aiflib-cc: string toOpenArray referenced but no openArray[char] " +
+        "type ({NC8* a; NI64 len}) found in the module — cannot bind it.");
+      process.exit(3);
+    }
+    const [, oaType, dataFld, lenFld] = m;
+    const helpers = openArrayStrSyms.map((nm) =>
+      `static inline ${oaType} ${nm}(Aiflib_string* aiflib_sp) {\n` +
+      `  ${oaType} aiflib_oa;\n` +
+      `  aiflib_oa.${dataFld} = (NC8*)aiflib_str_data(aiflib_sp);\n` +
+      `  aiflib_oa.${lenFld} = aiflib_str_len(*aiflib_sp);\n` +
+      `  return aiflib_oa;\n}`).join("\n");
+    const block = "/* ---- aiflib string toOpenArray (generated, after types) ---- */\n" +
+      helpers + "\n\n";
+    const anchor = ["/* --- prototypes --- */", "/* --- procedures --- */"]
+      .find((a) => finalC.includes(a));
+    if (!anchor) {
+      console.error("aiflib-cc: could not find an injection anchor after the type section.");
+      process.exit(3);
+    }
+    finalC = finalC.replace(anchor, block + anchor);
+  }
+
   const cFile = o.emitC || path.join(require("os").tmpdir(), "aiflib_" + path.basename(o.input) + ".c");
   fs.writeFileSync(cFile, finalC);
   if (o.emitC && !o.out) { console.log("wrote " + cFile); return; }
 
   const out = o.out || o.input.replace(/\.c\.nif$/, "").replace(/\.nif$/, "") || "a.out";
-  const cmd = [o.cc, "-std=gnu11", "-O2", "-w", cFile,
+  // -w silences aifc's stylistic warnings, but an implicit function declaration
+  // is a real defect for us: a runtime function called without a prototype is
+  // assumed to return int, which silently truncates 64-bit returns (pointers!).
+  // Promote exactly that class back to a hard error.
+  const cmd = [o.cc, "-std=gnu11", "-O2", "-w",
+    "-Werror=implicit-function-declaration", "-Werror=implicit-int", cFile,
     path.join(RUNTIME_DIR, "aiflib.c"), "-I", RUNTIME_DIR, "-o", out, ...o.cflags];
   const r = cp.spawnSync(cmd[0], cmd.slice(1), { stdio: "inherit" });
   if (r.status !== 0) { console.error("aiflib-cc: cc failed"); process.exit(r.status || 1); }

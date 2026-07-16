@@ -1,0 +1,122 @@
+(.nif27)
+(.indexat 3350             )
+(stmts@,1,examples/arrab.nim
+ (gvar@4,1 :a.0. . `t.0.IAarrayAiS64ZS4.@8 .)
+ (gvar@4,6 :i.0. .
+  (i 64)4@4)
+ (type@C,1 :`t.0.IAarrayAiS64ZS4. .
+  (array
+   (i@7 64)4))
+ (gvar :`iniGuard.0. .
+  (bool).)
+ (proc :`ini.0.
+  (params).
+  (pragmas
+   (smry writeGlobal callsUnknown))
+  (stmts
+   (if
+    (elif `iniGuard.0.
+     (stmts
+      (ret .))))
+   (asgn `iniGuard.0.
+    (true))
+   (call `ini.0.sysvq0asl)
+   (call `ini.0.syn1lfpjv)
+   (var@3,U,../nimony/lib/std/system.nim :`x.0 .
+    (i@G,1M,../nimony/lib/std/system/panics.nim 64)
+    (call nimIcheckAB.0.sysvq0asl 2@2,3,examples/arrab.nim 2@D,2,examples/arrab.nim 5@G,2,examples/arrab.nim))
+   (asgn@9,U,../nimony/lib/std/system.nim
+    (at~6 a.0.@,3,examples/arrab.nim `x.0)100@7,3,examples/arrab.nim)
+   (var@3,U,../nimony/lib/std/system.nim :`x.1 .
+    (i@G,1M,../nimony/lib/std/system/panics.nim 64)
+    (call nimIcheckAB.0.sysvq0asl 3@2,4,examples/arrab.nim 2@D,2,examples/arrab.nim 5@G,2,examples/arrab.nim))
+   (asgn@9,U,../nimony/lib/std/system.nim
+    (at~6 a.0.@,4,examples/arrab.nim `x.1)200@7,4,examples/arrab.nim)
+   (var@3,U,../nimony/lib/std/system.nim :`x.2 .
+    (i@G,1M,../nimony/lib/std/system/panics.nim 64)
+    (call nimIcheckAB.0.sysvq0asl 4@2,5,examples/arrab.nim 2@D,2,examples/arrab.nim 5@G,2,examples/arrab.nim))
+   (asgn@9,U,../nimony/lib/std/system.nim
+    (at~6 a.0.@,5,examples/arrab.nim `x.2)300@7,5,examples/arrab.nim)
+   (var@3,U,../nimony/lib/std/system.nim :`x.3 .
+    (i@G,1M,../nimony/lib/std/system/panics.nim 64)
+    (call nimIcheckAB.0.sysvq0asl 5@2,6,examples/arrab.nim 2@D,2,examples/arrab.nim 5@G,2,examples/arrab.nim))
+   (asgn@9,U,../nimony/lib/std/system.nim
+    (at~6 a.0.@,6,examples/arrab.nim `x.3)400@7,6,examples/arrab.nim)
+   (var@5,7 :`x.4 .
+    (i@G,1M,../nimony/lib/std/system/panics.nim 64)
+    (call nimIcheckAB.0.sysvq0asl i.0.@2 2@8,~6 5@B,~6))
+   (call@4,7c,../nimony/lib/std/syncio.nim write.2.syn1lfpjv stdout.0.syn1lfpjv@6
+    (at@5,8,examples/arrab.nim a.0. `x.4))
+   (call@2,7d,../nimony/lib/std/syncio.nim write.7.syn1lfpjv stdout.0.syn1lfpjv@6 '\0A'@E)
+   (var@5,8 :`x.5 .
+    (i@G,1M,../nimony/lib/std/system/panics.nim 64)
+    (call nimIcheckAB.0.sysvq0asl 2@2 2@8,~7 5@B,~7))
+   (call@4,7c,../nimony/lib/std/syncio.nim write.2.syn1lfpjv stdout.0.syn1lfpjv@6
+    (at@5,9,examples/arrab.nim a.0. `x.5))
+   (call@2,7d,../nimony/lib/std/syncio.nim write.7.syn1lfpjv stdout.0.syn1lfpjv@6 '\0A'@E)))
+ (type :`cchar.0.
+  (pragmas
+   (importc "char")
+   (nodecl))
+  (i 8))
+ (gvar :`cmdCount.0.
+  (pragmas
+   (exportc "cmdCount"))
+  (i 32).)
+ (gvar :`cmdLine.0.
+  (pragmas
+   (exportc "cmdLine"))
+  (ptr
+   (ptr
+    (c 8))).)
+ (gvar :`nimEnviron.0.
+  (pragmas
+   (exportc "nimEnviron"))
+  (ptr
+   (ptr
+    (c 8))).)
+ (proc :`main.0.
+  (params
+   (param :`argc.0. .
+    (i 32))
+   (param :`argv.0. .
+    (ptr
+     (ptr `cchar.0.)))
+   (param :`envp.0. .
+    (ptr
+     (ptr `cchar.0.))))
+  (i 32)
+  (pragmas
+   (exportc "main")
+   (smry writeGlobal callsUnknown
+    (param 0 0 reads)
+    (param 1 1 reads)
+    (param 2 2 reads)))
+  (stmts
+   (asgn `cmdCount.0. `argc.0.)
+   (asgn `cmdLine.0.
+    (cast
+     (ptr
+      (ptr
+       (c 8)))`argv.0.))
+   (asgn `nimEnviron.0.
+    (cast
+     (ptr
+      (ptr
+       (c 8)))`envp.0.))
+   (call `ini.0.)
+   (call nimFlushStdStreams.0.sysvq0asl)
+   (ret 0))))(.index@,1,examples/arrab.nim
+ (h a.0. 66)
+ (h i.0. 46)
+ (h `t.0.IAarrayAiS64ZS4. 32)
+ (h `iniGuard.0. 60)
+ (x `ini.0. 34)
+ (x `cchar.0. 2216)
+ (x `cmdCount.0. 71)
+ (x `cmdLine.0. 68)
+ (x `nimEnviron.0. 84)
+ (x `main.0. 90)
+ (h `argc.0. 27)
+ (h `argv.0. 34)
+ (h `envp.0. 54))

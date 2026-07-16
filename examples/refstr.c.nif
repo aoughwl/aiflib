@@ -1,0 +1,131 @@
+(.nif27)
+(.indexat 2780             )
+(stmts@,1,examples/refstr.nim
+ (type@C,1 :Person.0.~7 .
+  (ptr@2 `t.0.IArefSX50ersonX4fbj0refmur78n.))
+ (type@C,1 :Person.Obj.0.~7 .
+  (object@6 .
+   (fld~G,1 :name.0 . string.0.sysvq0asl@6)
+   (fld~G,2 :age.0 .
+    (i@5 64))))
+ (gvar@4,4 :p.0. .
+  (ptr@A,~3 `t.0.IArefSX50ersonX4fbj0refmur78n.).)
+ (type@E,1 :`t.0.IArefSX50ersonX4fbj0refmur78n. .
+  (object .
+   (fld :r.00 .
+    (i -1))
+   (fld :d.00 . Person.Obj.0.@4)))
+ (gvar :`iniGuard.0. .
+  (bool).)
+ (proc :`ini.0.
+  (params).
+  (pragmas
+   (smry writeGlobal callsUnknown))
+  (stmts
+   (if
+    (elif `iniGuard.0.
+     (stmts
+      (ret .))))
+   (asgn `iniGuard.0.
+    (true))
+   (call `ini.0.sysvq0asl)
+   (call `ini.0.syn1lfpjv)
+   (var@E,4 :`x.0 .
+    (ptr@D,31,../nimony/lib/std/system/memory.nim
+     (void))
+    (call allocFixed.0.sysvq0asl
+     (sizeof `t.0.IArefSX50ersonX4fbj0refmur78n.)))
+   (var@E,4 :`tmp.0 .
+    (ptr@,~3 `t.0.IArefSX50ersonX4fbj0refmur78n.)
+    (cast
+     (ptr@,~3 `t.0.IArefSX50ersonX4fbj0refmur78n.)`x.0))
+   (asgn@E,4
+    (deref `tmp.0)
+    (oconstr `t.0.IArefSX50ersonX4fbj0refmur78n.
+     (kv r.00 0)
+     (kv d.00
+      (oconstr Person.Obj.0.@4,~3
+       (kv@5 name.0~4
+        (oconstr@2 string.0.sysvq0asl
+         (kv bytes.0 111477644869893u)
+         (kv more.0
+          (nil))))
+       (kv@J age.0~3 30@2)))))
+   (asgn@4,4 p.0. `tmp.0@A)
+   (call@4,7c,../nimony/lib/std/syncio.nim write.0.syn1lfpjv stdout.0.syn1lfpjv@6
+    (dot@6,6,examples/refstr.nim
+     (dot
+      (deref p.0.~1)d.00 0)name.0 0))
+   (call@2,7d,../nimony/lib/std/syncio.nim write.7.syn1lfpjv stdout.0.syn1lfpjv@6 '\0A'@E)
+   (call@4,7c,../nimony/lib/std/syncio.nim write.2.syn1lfpjv stdout.0.syn1lfpjv@6
+    (dot@6,7,examples/refstr.nim
+     (dot
+      (deref p.0.~1)d.00 0)age.0 0))
+   (call@2,7d,../nimony/lib/std/syncio.nim write.7.syn1lfpjv stdout.0.syn1lfpjv@6 '\0A'@E)))
+ (type :`cchar.0.
+  (pragmas
+   (importc "char")
+   (nodecl))
+  (i 8))
+ (gvar :`cmdCount.0.
+  (pragmas
+   (exportc "cmdCount"))
+  (i 32).)
+ (gvar :`cmdLine.0.
+  (pragmas
+   (exportc "cmdLine"))
+  (ptr
+   (ptr
+    (c 8))).)
+ (gvar :`nimEnviron.0.
+  (pragmas
+   (exportc "nimEnviron"))
+  (ptr
+   (ptr
+    (c 8))).)
+ (proc :`main.0.
+  (params
+   (param :`argc.0. .
+    (i 32))
+   (param :`argv.0. .
+    (ptr
+     (ptr `cchar.0.)))
+   (param :`envp.0. .
+    (ptr
+     (ptr `cchar.0.))))
+  (i 32)
+  (pragmas
+   (exportc "main")
+   (smry writeGlobal callsUnknown
+    (param 0 0 reads)
+    (param 1 1 reads)
+    (param 2 2 reads)))
+  (stmts
+   (asgn `cmdCount.0. `argc.0.)
+   (asgn `cmdLine.0.
+    (cast
+     (ptr
+      (ptr
+       (c 8)))`argv.0.))
+   (asgn `nimEnviron.0.
+    (cast
+     (ptr
+      (ptr
+       (c 8)))`envp.0.))
+   (call `ini.0.)
+   (call nimFlushStdStreams.0.sysvq0asl)
+   (ret 0))))(.index@,1,examples/refstr.nim
+ (h Person.0. 67)
+ (h Person.Obj.0. 73)
+ (h p.0. 125)
+ (h `t.0.IArefSX50ersonX4fbj0refmur78n. 70)
+ (h `iniGuard.0. 125)
+ (x `ini.0. 34)
+ (x `cchar.0. 1390)
+ (x `cmdCount.0. 71)
+ (x `cmdLine.0. 68)
+ (x `nimEnviron.0. 84)
+ (x `main.0. 90)
+ (h `argc.0. 27)
+ (h `argv.0. 34)
+ (h `envp.0. 54))

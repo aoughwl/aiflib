@@ -98,6 +98,27 @@ NC8 aiflib_str_index(Aiflib_string s, NI i) {
   return aiflib_str_data(&s)[i];   /* nimony emits the bounds check at the call site */
 }
 
+/* Byte equality (mirrors system/stringimpl.nim equalStrings, tier-independent:
+ * equal length and equal bytes).  Empty strings compare equal. */
+NB8 aiflib_str_eq(Aiflib_string a, Aiflib_string b) {
+  NI la = aiflib_str_len(a), lb = aiflib_str_len(b);
+  if (la != lb) return false;
+  if (la == 0) return true;
+  return memcmp(aiflib_str_data(&a), aiflib_str_data(&b), (size_t)la) == 0;
+}
+
+/* Lexicographic comparison (mirrors system/stringimpl.nim cmp): unsigned-byte
+ * compare over the common prefix, then shorter < longer.  Returns <0/0/>0. */
+NI aiflib_str_cmp(Aiflib_string a, Aiflib_string b) {
+  NI la = aiflib_str_len(a), lb = aiflib_str_len(b);
+  NI m = la < lb ? la : lb;
+  int r = m ? memcmp(aiflib_str_data(&a), aiflib_str_data(&b), (size_t)m) : 0;
+  if (r != 0) return r < 0 ? -1 : 1;   /* memcmp already compares as unsigned char */
+  return la < lb ? -1 : (la > lb ? 1 : 0);
+}
+NB8 aiflib_str_lt(Aiflib_string a, Aiflib_string b) { return aiflib_str_cmp(a, b) <  0; }
+NB8 aiflib_str_le(Aiflib_string a, Aiflib_string b) { return aiflib_str_cmp(a, b) <= 0; }
+
 Aiflib_string aiflib_str_concat(Aiflib_string a, Aiflib_string b) {
   NI la = aiflib_str_len(a), lb = aiflib_str_len(b);
   NI n = la + lb;
@@ -207,16 +228,64 @@ void aiflib_panic(Aiflib_string s) {
   _exit(1);
 }
 
-NI aiflib_icheck_b(NI i, NI b) {
-  if (i >= 0 && i <= b) return i;
-  char msg[64];
-  int m = snprintf(msg, sizeof msg, "index out of bounds: %lld not in 0..%lld\n",
-                   (long long)i, (long long)b);
+/* Faithful to system/panics.nim raiseIndexError3: "index out of bounds: i notin
+ * a..b\n" on stderr, then exit 1.  Shared by every bounds-check variant. */
+static void aiflib_raise_index_error(NI64 i, NI64 a, NI64 b) {
+  char msg[96];
+  int m = snprintf(msg, sizeof msg, "index out of bounds: %lld notin %lld..%lld\n",
+                   (long long)i, (long long)a, (long long)b);
   if (m > 0) aiflib_raw_write(2, msg, m);
   _exit(1);
+}
+
+/* nimIcheckB(i, b): 0 <= i <= b ? i : panic(i,0,b). */
+NI aiflib_icheck_b(NI i, NI b) {
+  if (i >= 0 && i <= b) return i;
+  aiflib_raise_index_error(i, 0, b);
+  return 0;
+}
+
+/* nimIcheckAB(i, a, b): a <= i <= b ? i-a : panic(i,a,b).  Returns the OFFSET. */
+NI aiflib_icheck_ab(NI i, NI a, NI b) {
+  if (i >= a && i <= b) return i - a;
+  aiflib_raise_index_error(i, a, b);
+  return 0;
+}
+
+/* nimUcheckB(i, b): unsigned; i <= b ? i : panic. */
+NU aiflib_ucheck_b(NU i, NU b) {
+  if (i <= b) return i;
+  aiflib_raise_index_error((NI64)i, 0, (NI64)b);
+  return 0;
+}
+
+/* nimUcheckAB(i, a, b): unsigned; r=i-a (wraps); r <= b ? r : panic.  A wrapped
+ * (i<a) result exceeds b and panics, matching the Nim unsigned-subtraction path. */
+NU aiflib_ucheck_ab(NU i, NU a, NU b) {
+  NU r = i - a;
+  if (r <= b) return r;
+  aiflib_raise_index_error((NI64)i, (NI64)a, (NI64)b);
   return 0;
 }
 
 void aiflib_oom_handler(NI size) { (void)size; /* continue-after-OOM: no-op */ }
+
+/* ======================================================================== */
+/* seq growth (system/seqimpl.nim recalcCap)                                */
+/* ======================================================================== */
+
+/* recalcCap(oldCap, addedElements): new capacity for a growing seq.  Faithful
+ * to nimony's overflow-flag logic: required = old+added (saturate to high(int)
+ * on overflow); otherwise 1.5x growth, clamped up to `required`, and if the
+ * 1.5x step itself overflows, fall back to `required`. */
+NI aiflib_recalc_cap(NI oldCap, NI added) {
+  NI required;
+  if (__builtin_add_overflow(oldCap, added, &required))
+    return (NI)0x7fffffffffffffffLL;              /* high(int) */
+  NI grow;
+  if (__builtin_add_overflow(oldCap, oldCap >> 1, &grow))
+    return required;
+  return grow > required ? grow : required;
+}
 
 void aiflib_noop(void) { }

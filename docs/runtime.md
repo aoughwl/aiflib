@@ -51,11 +51,9 @@ inline flexible array at offset 24). aiflib uses a **pointer** instead, because
 `(LongString){ .data_0 = "hello" }` stores a pointer to real storage, whereas a
 flexible-array compound literal reserves *no* space and overflows — and (b) it
 lets a heap string be a single allocation (`header + data + NUL`, `data`
-pointing just past the header) so one `free` releases it. The tradeoff: a
-program that **indexes** into a string (`s[i]`) inlines nimony's flexible-array
-`rawData` and would read the pointer bytes as chars. No aiflib caller indexes;
-supporting `s[i]` is future work (either match the inline layout or teach aifc to
-emit indexing through the runtime).
+pointing just past the header) so one `free` releases it. String **indexing**
+(`s[i]`) works with this layout because aifc's field access `more->data_0[i]`
+follows the pointer to real storage (see the closing note below).
 
 ## SSO string encoding (`stringimpl.nim`)
 
@@ -87,19 +85,34 @@ Symbols the runtime currently provides (see `runtime/runtime-map.js`):
 |---|---|
 | init | `ini` (no-op) |
 | io | `write`(string/char/int/uint/bool/float), `stdout`/`stderr`/`stdin`, `nimFlushStdStreams` |
-| strings | `&`, `$`(int/uint/bool), `add`(char/str), `len`, `[]` (index), `=destroy`/`=copy`/`=dup`/`=wasMoved` (string) |
+| strings | `&`, `$`(int/uint/bool), `add`(char/str), `len`, `[]` (index), `toOpenArray` (for `for c in s`), `=destroy`/`=copy`/`=dup`/`=wasMoved` (string) |
+| string compare | `==`, `equalStrings` (case-on-string), `<`, `<=`, `cmp` |
+| seq | `recalcCap` (growth) — `alloc`/`realloc`/`allocatedSize` do the rest |
 | memory | `alloc`/`alloc0`/`realloc`/`dealloc`/`allocatedSize`, `allocFixed`/`deallocFixed` |
 | arc | `arcInc`/`arcDec`/`arcIsUnique` |
-| panics | `panic`, `nimIcheckB` (bounds), `oomHandler` |
+| panics | `panic`, `nimIcheckB`/`nimIcheckAB`/`nimUcheckB`/`nimUcheckAB` (bounds), `oomHandler` |
 
-**Overload resolution.** `write`, `$`, `add` and the `=hooks` are overloaded by
-one name. `aiflib-cc` picks the target from the call's argument **type**, read
-from the IR: literal shape, the variable's declaration in the same module, or
-the type a typed expression node carries. `write` additionally falls back to a
-verified disambiguator table (`0`=string, `1`=bool, `2`=int, `7`=char) for
-arguments whose type can't be read (field accesses, calls). Lifecycle hooks that
-reach the linker as externs are string hooks (seq/`ref` hooks are monomorphised
-into the program), so an unclassifiable one resolves to the string hook.
+**Overload resolution.** `write`, `$`, `add`, `==`, `<`, `<=`, `cmp` and the
+`=hooks` are overloaded by one name. `aiflib-cc` picks the target from the
+call's argument **type**, read from the IR: literal shape, the variable's
+declaration in the same module, or the type a typed expression node carries.
+`write` additionally falls back to a verified disambiguator table (`0`=string,
+`1`=bool, `2`=int, `7`=char) for arguments whose type can't be read (field
+accesses, calls). The comparison operators only ever reach the linker as
+externs for `string` (int/float/char comparisons lower to C operators), so a
+non-string comparator extern is reported as a coverage gap rather than
+mis-bound. Lifecycle hooks that reach the linker as externs are string hooks
+(seq/`ref` hooks are monomorphised into the program), so an unclassifiable one
+resolves to the string hook.
+
+**String iteration (`for c in s`).** This lowers to `toOpenArray(s)`, whose
+return type is the program-local `openArray[char]` struct (`{char* a; int len}`).
+Because that type name carries a per-program hash and is defined *after* the
+shim, `aiflib-cc` can't bridge it with a `#define`; instead it emits a real
+`toOpenArray` function right after the type section (where the struct is
+complete) returning `{ str_data(s), str_len(s) }`. Only the *string*
+`toOpenArray` is a system extern — the seq/array versions are monomorphised into
+the program.
 
 Anything unmapped is printed as a coverage gap and the build fails — the runtime
 is never silently stubbed.
@@ -107,21 +120,32 @@ is never silently stubbed.
 ## aifc dependencies
 
 aiflib links `aifc`'s printed C. Building the suite exercised (and fixed
-upstream in `aifc`) three printer completeness points:
+upstream in `aifc`) four printer completeness points:
 
 - `(ovf)` — read the overflow flag `(keepovf …)` sets (needed by seq bounds).
 - prototypes for **inline** procs — a monomorphised `static inline` seq helper
   called before its definition otherwise got a conflicting implicit declaration.
 - **forward declarations** for object/union structs — a `ref` typedef that
   points at a struct defined later in source order now resolves.
+- **value-dependency ordering** of type declarations — a struct with a by-value
+  field of another struct (e.g. `object` with a `seq` field) is now emitted
+  *after* that field type's full definition, since C requires a complete type
+  for a value member (the forward decls above only satisfy pointers).
+
+`aiflib-cc` itself compiles with `-Werror=implicit-function-declaration`: a
+runtime function called without a prototype would be assumed to return `int`
+and silently truncate a 64-bit return (a pointer!), so that class is a hard
+error rather than a `-w`-silenced warning.
 
 ## Not yet covered (future work)
 
-Iterating a string with `for c in s` (needs `toOpenArray` returning an
-`openArray[char]` by value into a module-local `openArray` struct type);
-exceptions across the `eraiser` error-code path beyond `panic`; float `$`; the
-aowl-source `system` module (Phase 2) that would replace this hand-written C
+Exceptions across the `eraiser` error-code path beyond `panic`; float `$`
+(`write(File, float)` works, but `$`-of-float returning a string is not wired);
+the aowl-source `system` module (Phase 2) that would replace this hand-written C
 with code compiled *through* the stack.
+
+(`for c in s` string iteration and string comparison `==`/`<`/`<=`/`cmp` are now
+covered — see the sections above.)
 
 String **indexing** (`s[i]`) *is* covered: because the runtime declares
 `LongString.data` as a pointer, aifc's field-name access `more->data_0[i]`

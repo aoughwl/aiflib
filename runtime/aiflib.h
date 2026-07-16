@@ -94,6 +94,10 @@ const NC8*    aiflib_str_data(const Aiflib_string* s);
 Aiflib_string aiflib_str_from_bytes(const NC8* p, NI n);
 Aiflib_string aiflib_str_concat(Aiflib_string a, Aiflib_string b);
 NC8           aiflib_str_index(Aiflib_string s, NI i);
+NB8           aiflib_str_eq(Aiflib_string a, Aiflib_string b);
+NI            aiflib_str_cmp(Aiflib_string a, Aiflib_string b);
+NB8           aiflib_str_lt(Aiflib_string a, Aiflib_string b);
+NB8           aiflib_str_le(Aiflib_string a, Aiflib_string b);
 void          aiflib_str_add_char(Aiflib_string* s, NC8 c);
 void          aiflib_str_add_str(Aiflib_string* s, Aiflib_string part);
 Aiflib_string aiflib_dollar_int(NI64 x);
@@ -114,9 +118,15 @@ void aiflib_write_float(Aiflib_File f, NF64 x);
 void aiflib_flush_std_streams(void);
 
 /* ---- panics / checks / OOM (system/panics.nim, system/memory.nim) ---- */
-NI   aiflib_icheck_b(NI i, NI b);      /* bounds check [0,b]; panics if out  */
+NI   aiflib_icheck_b(NI i, NI b);        /* nimIcheckB:  [0,b] -> i;   else panic */
+NI   aiflib_icheck_ab(NI i, NI a, NI b); /* nimIcheckAB: [a,b] -> i-a; else panic */
+NU   aiflib_ucheck_b(NU i, NU b);        /* nimUcheckB:  unsigned i<=b -> i        */
+NU   aiflib_ucheck_ab(NU i, NU a, NU b); /* nimUcheckAB: unsigned i-a<=b -> i-a     */
 void aiflib_panic(Aiflib_string s);    /* write s to stderr, exit 1 (noreturn)*/
 void aiflib_oom_handler(NI size);      /* default: continue-after-OOM (no-op)*/
+
+/* ---- seq growth (system/seqimpl.nim) ---- */
+NI   aiflib_recalc_cap(NI oldCap, NI added);
 
 /* ---- module init (system/syncio `ini`): no-op; the C runtime self-inits. ---- */
 void aiflib_noop(void);

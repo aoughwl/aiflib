@@ -22,6 +22,7 @@ extern Aiflib_File aiflib_stdin;`;
 
 // Prototypes for every aiflib runtime function the shim may alias to.
 const PROTOS = `NI aiflib_str_len(Aiflib_string);
+const NC8* aiflib_str_data(const Aiflib_string*);
 void aiflib_write_string(Aiflib_File, Aiflib_string);
 void aiflib_write_char(Aiflib_File, NC8);
 void aiflib_write_int(Aiflib_File, NI64);
@@ -52,8 +53,16 @@ void aiflib_arc_inc(NI*);
 NB8 aiflib_arc_dec(NI*);
 NB8 aiflib_arc_is_unique(NI*);
 NI aiflib_icheck_b(NI, NI);
+NI aiflib_icheck_ab(NI, NI, NI);
+NU aiflib_ucheck_b(NU, NU);
+NU aiflib_ucheck_ab(NU, NU, NU);
 void aiflib_panic(Aiflib_string);
-void aiflib_oom_handler(NI);`;
+void aiflib_oom_handler(NI);
+NB8 aiflib_str_eq(Aiflib_string, Aiflib_string);
+NI aiflib_str_cmp(Aiflib_string, Aiflib_string);
+NB8 aiflib_str_lt(Aiflib_string, Aiflib_string);
+NB8 aiflib_str_le(Aiflib_string, Aiflib_string);
+NI aiflib_recalc_cap(NI, NI);`;
 
 function shimTypedefs(/* ignored: always emit the small fixed set */) {
   return STRUCTS + "\n" + GLOBALS;
@@ -118,6 +127,34 @@ const RUNTIME = {
   "$":  { kind: "proc", resolve: (kinds) => ({ int: "aiflib_dollar_int", uint: "aiflib_dollar_uint", bool: "aiflib_dollar_bool" }[kinds[0]] || "aiflib_dollar_int") },
   add:  { kind: "proc", resolve: (kinds) => (kinds[kinds.length - 1] === "char" ? "aiflib_str_add_char" : "aiflib_str_add_str") },
   len:  { kind: "proc", target: "aiflib_str_len" },
+  // `for c in s` lowers to `toOpenArray(s)` returning an openArray[char]
+  // ({NC8* a; NI len}).  Only the *string* toOpenArray reaches the linker as a
+  // system extern (seq/array versions are monomorphised locally).  Its return
+  // type is the module-local openArray struct, so aiflib-cc can't `#define` it to
+  // a fixed aiflib type — it emits a real function *after* the type section
+  // (kind "openarray-str", handled in aiflib-cc, no target/resolve here).
+  toOpenArray: { kind: "openarray-str" },
+  // string equality: only `string.==` reaches the linker as an extern (int/float
+  // `==` lower to C `==` inline; enum/seq/object `==` are monomorphised locally).
+  // Resolve by arg type so a non-string `==` extern surfaces as a coverage gap
+  // rather than being mis-bound to the string comparator.
+  "==": { kind: "proc", resolve: (kinds) =>
+            (kinds[0] === "string" || kinds[0] === "expr" || kinds[0] === "none")
+              ? "aiflib_str_eq" : null },
+  // `case s` over strings lowers to a direct equalStrings call (not `==`).
+  equalStrings: { kind: "proc", target: "aiflib_str_eq" },
+  // Ordered string comparison. Like `==`, only the string overloads reach the
+  // linker as externs (int/float/char `<`/`<=` lower to C operators); resolve by
+  // arg type so any non-string comparator extern surfaces as a coverage gap.
+  "<":  { kind: "proc", resolve: (kinds) =>
+            (kinds[0] === "string" || kinds[0] === "expr" || kinds[0] === "none")
+              ? "aiflib_str_lt" : null },
+  "<=": { kind: "proc", resolve: (kinds) =>
+            (kinds[0] === "string" || kinds[0] === "expr" || kinds[0] === "none")
+              ? "aiflib_str_le" : null },
+  cmp:  { kind: "proc", resolve: (kinds) =>
+            (kinds[0] === "string" || kinds[0] === "expr" || kinds[0] === "none")
+              ? "aiflib_str_cmp" : null },
   nimStrDestroy:  { kind: "proc", target: "aiflib_str_destroy" },
   nimStrCopy:     { kind: "proc", target: "aiflib_str_copy" },
   nimStrDup:      { kind: "proc", target: "aiflib_str_dup" },
@@ -137,6 +174,7 @@ const RUNTIME = {
   realloc:       { kind: "proc", target: "aiflib_realloc" },
   dealloc:       { kind: "proc", target: "aiflib_dealloc" },
   allocatedSize: { kind: "proc", target: "aiflib_allocated_size" },
+  recalcCap:     { kind: "proc", target: "aiflib_recalc_cap" },
   allocFixed:    { kind: "proc", target: "aiflib_alloc_fixed" },
   deallocFixed:  { kind: "proc", target: "aiflib_dealloc_fixed" },
   arcInc:        { kind: "proc", target: "aiflib_arc_inc" },
@@ -145,7 +183,10 @@ const RUNTIME = {
 
   // --- panics / checks / OOM ---
   panic:      { kind: "proc", target: "aiflib_panic" },
-  nimIcheckB: { kind: "proc", target: "aiflib_icheck_b" },
+  nimIcheckB:  { kind: "proc", target: "aiflib_icheck_b" },
+  nimIcheckAB: { kind: "proc", target: "aiflib_icheck_ab" },
+  nimUcheckB:  { kind: "proc", target: "aiflib_ucheck_b" },
+  nimUcheckAB: { kind: "proc", target: "aiflib_ucheck_ab" },
   oomHandler: { kind: "proc", target: "aiflib_oom_handler" },
 };
 

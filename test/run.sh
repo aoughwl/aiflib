@@ -15,7 +15,19 @@ ex="examples"; exp="test/expected"; work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 EXAMPLES=(hello echo_str echo_int concat loopsum strbuild multi
-          seqlen seqsum refobj bignum longstr whilei caseof seqstr stridx)
+          seqlen seqsum refobj bignum longstr whilei caseof seqstr stridx
+          # string comparison / equality / case-on-string
+          streq strcmp casestr
+          # seqs: growth (recalcCap), nesting, assignment, return-by-value
+          seqadd seqnest seqassign retseq
+          # objects/refs with heap-typed fields (aifc value-dep type ordering)
+          refstr objseq
+          # string iteration (for c in s -> toOpenArray)
+          foriter
+          # bounds checks: array OOB panic, non-zero-based array (nimIcheckAB)
+          arroob arrab
+          # integer extremes and SSO string tier boundaries
+          intmin ssobound)
 
 if [ "${1:-}" = "--regen" ]; then
   echo "== regenerating .c.nif from .nim =="

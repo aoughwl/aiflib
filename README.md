@@ -6,10 +6,13 @@ nimony programs — `echo`, strings, seqs, `ref` objects with ARC — link and r
 natively** through [aifc](https://github.com/aoughwl/aifc), with **no** nimony
 54 KB `system.c.nif`.
 
-> Status: **working.** `echo "hello"` and 14 other programs (strings, string
-> concat/build, `$`, seqs with bounds checks, `ref` objects with ARC) compile to
-> native binaries through `aifc` + `aiflib` and pass an acceptance suite —
-> ASan/UBSan-clean, leak-free. This is the biggest unlock in the
+> Status: **working.** `echo "hello"` and 29 other programs — strings (concat,
+> build, `$`, indexing, `==`/`<`/`<=`, `case`-on-string, `for c in s`), seqs
+> (growth, nesting, assignment, return-by-value, bounds checks), `object`/`ref`
+> with heap-typed fields, non-zero-based arrays with bounds panics, `INT64_MIN`
+> and SSO tier boundaries — compile to native binaries through `aifc` + `aiflib`
+> and pass a 30/30 acceptance suite, **ASan/UBSan/LSan-clean, leak-free**. This
+> is the biggest unlock in the
 > [aifmony](https://github.com/aoughwl/aifmony) rewrite: it's what lets a program
 > compile *natively* through the self-owned stack instead of running under the
 > [nifi](https://github.com/aoughwl/aifi) interpreter.
@@ -28,8 +31,11 @@ npm run test:regen  # also regenerate each .c.nif from its .nim first (needs nim
   ok    seqsum     15
   ok    refobj     7
   ok    longstr    the quick brown fox jumps over the lazy dog
+  ok    foriter    h
+  ok    objseq     4
+  ok    arroob     index out of bounds: 5 notin 0..2
   …
-  15/15 passed
+  30/30 passed
 ```
 
 ## What it is
