@@ -1,53 +1,97 @@
 # aiflib
 
-The **aowl system module + runtime**: the standard `system` layer and the C
-runtime primitives that the native ([aifc](https://github.com/aoughwl/aifc)) and
-JS ([nifjs](https://github.com/aoughwl/nifjs)) backends link against, so real
-programs — strings, seqs, `echo`, ref objects with ARC — compile through the
-self-owned stack **without** nimony's 54 KB `system.c.aif`.
+The **aowl system module + runtime**: the hand-written C runtime that provides
+the `system` / `syncio` symbols a post-`hexer` `.c.nif` references, so **real
+nimony programs — `echo`, strings, seqs, `ref` objects with ARC — link and run
+natively** through [aifc](https://github.com/aoughwl/aifc), with **no** nimony
+54 KB `system.c.nif`.
 
-> Status: **scaffolding.** This is the biggest remaining unlock in the
-> [aifmony](https://github.com/aoughwl/aifmony) rewrite — today `echo`/strings/
-> seqs run under the interpreter ([nifi](https://github.com/aoughwl/nifi), full
-> runtime) while the native path covers the arithmetic/control-flow core. aiflib
-> is what lets `echo "hello"` compile **natively**.
+> Status: **working.** `echo "hello"` and 14 other programs (strings, string
+> concat/build, `$`, seqs with bounds checks, `ref` objects with ARC) compile to
+> native binaries through `aifc` + `aiflib` and pass an acceptance suite —
+> ASan/UBSan-clean, leak-free. This is the biggest unlock in the
+> [aifmony](https://github.com/aoughwl/aifmony) rewrite: it's what lets a program
+> compile *natively* through the self-owned stack instead of running under the
+> [nifi](https://github.com/aoughwl/aifi) interpreter.
 
-## Why it's needed
-
-By the time [aifhexer](https://github.com/aoughwl/aifhexer) has lowered a
-program, ARC calls and runtime operations are *injected* into the `.c.aif` —
-they reference runtime symbols that must exist at link time. Today those come
-from nimony's `system` module compiled to `.c.aif`. aiflib provides them as an
-aowl-owned layer.
-
-## The concrete surface (derived from real backend output)
-
-A minimal `echo "hello"` lowers to `.c.aif` that references, among others:
-
-```
-LongString            struct { NI fullLen; NI rc; NI capImpl; NC8* data; }   // string payload
-string                struct { NU bytes; void* more; }                        // string header (small-string-optimised)
-write(File, string)                                                           // stdout write
-nimFlushStdStreams()                                                          // flush
-cmdCount / cmdLine                                                            // argv bridge (exportc)
+```sh
+npm test            # build every example .c.nif natively + assert output (node + gcc)
+npm run test:regen  # also regenerate each .c.nif from its .nim first (needs nimony)
 ```
 
-Ref/seq programs additionally need: the ARC hooks (`=destroy`, `=copy`,
-`=sink`, `=trace`), allocation (`allocFixed`/`deallocFixed` or a GC), `NimSeqV2`
-layout + `newSeq`/`add`/`len`, and the `$`/`echo` numeric formatters.
+```
+  ok    hello      hello, nimony
+  ok    echo_str   greetings from aiflib
+  ok    echo_int   42
+  ok    concat     foobar
+  ok    strbuild   ababab
+  ok    seqsum     15
+  ok    refobj     7
+  ok    longstr    the quick brown fox jumps over the lazy dog
+  …
+  15/15 passed
+```
 
-## Plan
+## What it is
 
-1. **C runtime core** (`runtime/aiflib.h` + `.c`): the string/seq structs, ARC
-   helpers, allocator, and IO shims above — hand-written C, the seed & oracle
-   for the eventual aowl-native `system`. This alone unblocks native `echo` and
-   string programs through [aifc](https://github.com/aoughwl/aifc).
-2. **`system` module** in aowl source, compiled through the stack, replacing the
-   reused nimony `system`.
-3. **stdlib** on top (`std/*`) as needed.
+By the time `hexer` has lowered a program, ARC calls and runtime operations are
+*injected* into the `.c.nif` — they reference runtime symbols (`write`, the
+string/seq structs, `=destroy`, `allocFixed`, `arcInc`, …) that must exist at
+link time. Nimony gets them by compiling its `system` module to `.c.nif`.
+**aiflib provides them as an aowl-owned C layer instead.**
 
-Per the aoughwl convention, the hand-written C runtime is the **bootstrap seed &
-oracle** for the later aowl-native implementation.
+The trick: those symbols are **content-addressed** — `write.0.syn1lfpjv` carries
+the hash of the `syncio` module. aiflib is written once with clean,
+hash-independent names (`aiflib_write_string`, …); the linker `bin/aiflib-cc`
+reads the *actual* symbols a given `.c.nif` uses and generates a per-program
+shim that aliases them onto aiflib. Any runtime symbol aiflib doesn't cover is
+reported as an explicit coverage gap, never silently stubbed.
+
+```
+  .c.nif ──aifc.compileModule──▶ C ──inject shim──▶ gcc + runtime/aiflib.c ──▶ native binary
+             (the printer)         (hashed→aiflib)        (the runtime)
+```
+
+## Layout
+
+| path | what |
+|---|---|
+| `runtime/aiflib.h` / `aiflib.c` | the C runtime: string SSO, seq, ARC, allocator, IO, `$`, panics |
+| `runtime/runtime-map.js` | nimony symbol base → aiflib entry point + the shim C |
+| `bin/aiflib-cc.js` | link a `.c.nif` into a native binary (print → shim → gcc) |
+| `examples/*.nim` / `*.c.nif` | source + committed post-hexer IR for the suite |
+| `test/run.sh`, `test/expected/` | the acceptance suite |
+| `docs/runtime.md` | the runtime contract in detail (layouts, SSO, ABI, coverage) |
+
+## Usage
+
+```sh
+# compile a post-hexer .c.nif to a native binary and run it:
+node bin/aiflib-cc.js path/to/module.c.nif -o ./prog --run
+
+# from Nim source (needs the nimony toolchain):
+test/gen-cnif.sh foo.nim foo.c.nif
+node bin/aiflib-cc.js foo.c.nif -o foo && ./foo
+```
+
+`aiflib-cc` resolves `aifc` from `$AIFLIB_AIFC`, then `~/aifc/nifc.js`. The
+`.nim → .c.nif` step resolves nimony from `$AIFLIB_NIMONY`, then `~/nimony/bin`.
+
+## Design notes
+
+- **SSO strings** mirror `lib/std/system/stringimpl.nim`: `slen` in the low byte
+  of `bytes`, tiers short(≤7) / medium(≤14) / long(255) / static(254). Literals
+  lower to a static `LongString`; `LongString.data` is a **pointer** (one heap
+  allocation per string, header + data + NUL) rather than nimony's inline
+  flexible array — that is exactly what `aifc` emits for a literal const and it
+  keeps freeing a string a single `free`.
+- **ARC** is single-threaded: `rc` stores `refcount-1` (0 = unique), matching
+  `system/arcops.nim`. `=destroy`/`=copy`/`=dup` for strings live here; seq and
+  user-`ref` hooks are monomorphised into the program by `hexer`.
+- Per the aoughwl convention, this hand-written C runtime is the **bootstrap
+  seed & oracle** for the eventual aowl-native `system` module (Phase 2).
+
+See [docs/runtime.md](docs/runtime.md) for the full contract and coverage table.
 
 ## License
 
