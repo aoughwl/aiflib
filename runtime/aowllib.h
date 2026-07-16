@@ -2,7 +2,7 @@
  *
  * Hand-written C runtime that provides the `system` / `syncio` symbols a
  * post-hexer `.c.nif` references, so real nimony programs link natively
- * through aifc (https://github.com/aoughwl/aifc) with no nimony `system.c.nif`.
+ * through aowlc (https://github.com/aoughwl/aowlc) with no nimony `system.c.nif`.
  *
  * Per the aoughwl convention this hand-written C is the *bootstrap seed &
  * oracle* for the eventual aowl-native `system` module.
@@ -19,8 +19,8 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-/* ---- NIF primitive typedefs (mirror aifc's PRELUDE; C11 permits identical
- *      typedef redefinition, so co-inclusion with aifc output is safe). ---- */
+/* ---- NIF primitive typedefs (mirror aowlc's PRELUDE; C11 permits identical
+ *      typedef redefinition, so co-inclusion with aowlc output is safe). ---- */
 typedef unsigned char NC8;
 typedef uint16_t NC16;
 typedef uint32_t NC32;
@@ -42,7 +42,7 @@ typedef _Bool NB8;
 /* ---- string / LongString layout (field names are hash-independent) ----
  *
  * `data_0` is a POINTER, not an inline flexible array: this is exactly what
- * aifc emits for a string-literal const (`.data_0 = "..."` -> pointer to the
+ * aowlc emits for a string-literal const (`.data_0 = "..."` -> pointer to the
  * literal, real storage), and it lets heap blocks be one allocation whose
  * `data_0` points just past the header (so freeing the header frees the data).
  * (Programs that *index* into a string are not yet supported — that path would
