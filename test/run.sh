@@ -34,7 +34,9 @@ EXAMPLES=(hello echo_str echo_int concat loopsum strbuild multi
           # bounds checks: array OOB panic, non-zero-based array (nimIcheckAB)
           arroob arrab
           # integer extremes and SSO string tier boundaries
-          intmin ssobound)
+          intmin ssobound
+          # fixed arrays: const array + array-typed object field
+          constarr arrfield)
 
 if [ "${1:-}" = "--regen" ]; then
   echo "== regenerating .c.nif from .nim =="

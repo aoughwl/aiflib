@@ -150,13 +150,20 @@ error rather than a `-w`-silenced warning.
 
 ## Not yet covered (future work)
 
-Exceptions across the `eraiser` error-code path beyond `panic`; float `$`
-(`write(File, float)` works, but `$`-of-float returning a string is not wired);
-the aowl-source `system` module (Phase 2) that would replace this hand-written C
-with code compiled *through* the stack.
+**Inheritance / RTTI.** `object of RootObj` (and method dispatch) needs the
+`RootObj`/`Rtti` type-info layouts plus per-type vtable consts — a whole
+subsystem, not a symbol or two — so it is reported as a clean coverage gap
+rather than half-supported. (It also leans on an `aifc` array-const codegen path
+the plain-array cases don't hit.) Value objects, `ref object`, and case objects
+all work; only the `of`-inheritance hierarchy is out.
 
-(`for c in s` string iteration and string comparison `==`/`<`/`<=`/`cmp` are now
-covered — see the sections above.)
+Also out: exceptions across the `eraiser` error-code path beyond `panic`; float
+`$` (`write(File, float)` works, but `$`-of-float returning a string is not
+wired); the aowl-source `system` module (Phase 2) that would replace this
+hand-written C with code compiled *through* the stack.
+
+(`for c in s` iteration, `s[a..b]` slicing, `s[i] = c` mutation, `newString`,
+and string comparison `==`/`<`/`<=`/`cmp` are all covered now — see above.)
 
 String **indexing** (`s[i]`) *is* covered: because the runtime declares
 `LongString.data` as a pointer, aifc's field-name access `more->data_0[i]`
